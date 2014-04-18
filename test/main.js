@@ -209,7 +209,7 @@ describe('gulp-inject', function () {
 
     var stream = inject('fixtures/templateString.html', {
       ignorePath: 'fixtures',
-      templateString: '<!DOCTYPE html><!-- inject:js --><!-- endinject --><h1>Hello world</h1>'
+      templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<!-- endinject -->\n<h1>Hello world</h1>'
     });
 
     stream.on('error', function(err) {
@@ -280,7 +280,7 @@ describe('gulp-inject', function () {
       ignorePath: 'fixtures',
       starttag: '<!-- {{ext}}: -->',
       endtag: '<!-- /{{ext}} -->',
-      templateString: '<!DOCTYPE html><!-- js: --><!-- /js --><h1>Hello world</h1>'
+      templateString: '<!DOCTYPE html>\n<!-- js: -->\n<!-- /js -->\n<h1>Hello world</h1>'
     });
 
     stream.on('error', function(err) {
@@ -414,4 +414,83 @@ describe('gulp-inject', function () {
     stream.end();
   });
 
+  it('should append new data before end tag', function (done) {
+
+    var sources = [
+      fixture('source2.js'),
+      fixture('source2.html'),
+      fixture('source2.css')
+    ];
+
+    var stream = inject('fixtures/template3.html', {
+      append: true,
+      adjust: function (key, content) {
+        return content.trim();
+      }
+    });
+
+    stream.on('error', function(err) {
+      should.exist(err);
+      done(err);
+    });
+
+    stream.on('data', function (newFile) {
+
+      should.exist(newFile);
+      should.exist(newFile.contents);
+
+      String(newFile.contents).should.equal(String(expectedFile('append.html').contents));
+      done();
+    });
+
+    sources.forEach(function (src) {
+      stream.write(src);
+    });
+
+    stream.end();
+  });
+
+  it('should be able to append new data using transform function for each file', function (done) {
+
+    var sources = [
+      fixture('lib2.js'),
+      fixture('component.html'),
+      fixture('lib3.js'),
+      fixture('styles.css')
+    ];
+
+    var stream = inject('fixtures/customTransform.json', {
+      ignorePath: 'fixtures',
+      templateString: '{\n  "js": [\n    "/lib1.js"\n  ]\n}',
+      starttag: '"{{ext}}": [',
+      append: true,
+      endtag: ']',
+      transform: function (srcPath, file, i, length) {
+        return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
+      },
+      adjust: function (key, content) {
+        return '  ' + content.trim() + ',';
+      }
+    });
+
+    stream.on('error', function(err) {
+      should.exist(err);
+      done(err);
+    });
+
+    stream.on('data', function (newFile) {
+
+      should.exist(newFile);
+      should.exist(newFile.contents);
+
+      String(newFile.contents).should.equal(String(expectedFile('append.json').contents));
+      done();
+    });
+
+    sources.forEach(function (src) {
+      stream.write(src);
+    });
+
+    stream.end();
+  });
 });

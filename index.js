@@ -26,7 +26,9 @@ module.exports = function(fileOrStream, opt){
   opt.starttag = opt.starttag || '<!-- inject:{{ext}} -->';
   opt.endtag = opt.endtag || '<!-- endinject -->';
   opt.ignorePath = toArray(opt.ignorePath);
-  opt.addRootSlash = typeof opt.addRootSlash !== 'undefined' ? !!opt.addRootSlash : true;
+  opt.addRootSlash = typeof opt.addRootSlash !== 'undefined' ? Boolean(opt.addRootSlash) : true;
+  opt.append = typeof opt.append !== 'undefined' ? Boolean(opt.append) : false;
+
   opt.transform = opt.transform || function (filepath) {
     switch(extname(filepath)) {
       case 'css':
@@ -38,6 +40,10 @@ module.exports = function(fileOrStream, opt){
       case 'coffee':
         return '<script type="text/coffeescript" src="' + filepath + '"></script>';  
     }
+  };
+
+  opt.adjust = opt.adjust || function (key, content) {
+    return content;
   };
 
   // Is the first parameter a Vinyl File Stream:
@@ -194,13 +200,20 @@ function getNewContent (oldContent, collection, opt) {
       }
       return contents.replace(
         getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
-        function injector (match, starttag, indent, content, endtag) {
-          return [starttag]
+        function injector (match, indent) {
+          var result = [indent + tagInfo.starttag];
+          if (opt.append) {
+            var content = extractContent(tagInfo.starttag, tagInfo.endtag, oldContent);
+            if (content) {
+              result = result.concat(opt.adjust(key, content));
+            }
+          }
+          return result
             .concat(tagInfo.files.map(function transformFile (file, i, files) {
               return opt.transform(file.filepath, file.file, i, files.length);
             }))
-            .concat([endtag])
-            .join(indent);
+            .concat(tagInfo.endtag)
+            .join('\n' + indent);
         }
       );
     }, String(oldContent)));
@@ -217,7 +230,12 @@ function extname (file) {
 }
 
 function getInjectorTagsRegExp (starttag, endtag) {
-  return new RegExp('(' + escapeForRegExp(starttag) + ')(\\s*)(\\n|\\r|.)*?(' + escapeForRegExp(endtag) + ')', 'gi');
+  return new RegExp('([ \t]*)(' + escapeForRegExp(starttag) + ')(\\s*)(\\n|\\r|.)*?(' + escapeForRegExp(endtag) + ')', 'gi');
+}
+
+function extractContent (starttag, endtag, template) {
+  var regexp = new RegExp('(' + escapeForRegExp(starttag) + ')((?:\n|\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gi');
+  return regexp.exec(template)[2];
 }
 
 function escapeForRegExp (str) {
