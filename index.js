@@ -21,6 +21,9 @@ module.exports = function(fileOrStream, opt){
   if (opt.sort && typeof opt.sort !== 'function') {
     throw new PluginError('gulp-inject', 'sort option must be a function');
   }
+  if (opt.adjust && typeof opt.adjust !== 'function') {
+    throw new PluginError('gulp-project', 'adjust option must be a function');
+  }
 
   // Defaults:
   opt.starttag = opt.starttag || '<!-- inject:{{ext}} -->';
@@ -192,33 +195,31 @@ function collector (collection, opt, cb) {
  */
 function getNewContent (oldContent, collection, opt) {
   var keys = Object.keys(collection);
-  if (keys.length) {
-    return new Buffer(keys.reduce(function eachInCollection (contents, key) {
-      var tagInfo = collection[key];
-      if (opt.sort) {
-        tagInfo.files.sort(opt.sort);
-      }
-      return contents.replace(
-        getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
-        function injector (match, indent) {
-          var result = [indent + tagInfo.starttag];
-          if (opt.append) {
-            var content = extractContent(tagInfo.starttag, tagInfo.endtag, oldContent);
-            if (content) {
-              result = result.concat(opt.adjust(key, content));
-            }
-          }
-          return result
-            .concat(tagInfo.files.map(function transformFile (file, i, files) {
-              return opt.transform(file.filepath, file.file, i, files.length);
-            }))
-            .concat(tagInfo.endtag)
-            .join('\n' + indent);
-        }
-      );
-    }, String(oldContent)));
+  if (!keys.length) {
+    return oldContent;
   }
-  return oldContent;
+  return new Buffer(keys.reduce(function eachInCollection (contents, key) {
+    var tagInfo = collection[key];
+    if (opt.sort) {
+      tagInfo.files.sort(opt.sort);
+    }
+    return contents.replace(
+      getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
+      function injector (match, indent, starttag, content, endtag) {
+        var result = [indent + starttag];
+        content = content.trim();
+        if (opt.append && content) {
+            result = result.concat(opt.adjust(key, content));
+        }
+        return result
+          .concat(tagInfo.files.map(function transformFile (file, i, files) {
+            return opt.transform(file.filepath, file.file, i, files.length);
+          }))
+          .concat(endtag)
+          .join('\n' + indent);
+      }
+    );
+  }, String(oldContent)));
 }
 
 function getTag (tag, ext) {
@@ -230,12 +231,7 @@ function extname (file) {
 }
 
 function getInjectorTagsRegExp (starttag, endtag) {
-  return new RegExp('([ \t]*)(' + escapeForRegExp(starttag) + ')(\\s*)(\\n|\\r|.)*?(' + escapeForRegExp(endtag) + ')', 'gi');
-}
-
-function extractContent (starttag, endtag, template) {
-  var regexp = new RegExp('(' + escapeForRegExp(starttag) + ')((?:\n|\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gi');
-  return regexp.exec(template)[2].trim();
+  return new RegExp('([ \t]*)(' + escapeForRegExp(starttag) + ')((?:\n|\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gi');
 }
 
 function escapeForRegExp (str) {
