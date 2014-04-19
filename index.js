@@ -235,7 +235,7 @@ function getInjectorTagsRegExp (starttag, endtag) {
 
 function extractContent (starttag, endtag, template) {
   var regexp = new RegExp('(' + escapeForRegExp(starttag) + ')((?:\n|\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gi');
-  return regexp.exec(template)[2];
+  return regexp.exec(template)[2].trim();
 }
 
 function escapeForRegExp (str) {

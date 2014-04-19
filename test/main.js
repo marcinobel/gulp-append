@@ -423,10 +423,7 @@ describe('gulp-inject', function () {
     ];
 
     var stream = inject('fixtures/template3.html', {
-      append: true,
-      adjust: function (key, content) {
-        return content.trim();
-      }
+      append: true
     });
 
     stream.on('error', function(err) {
@@ -469,7 +466,7 @@ describe('gulp-inject', function () {
         return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
       },
       adjust: function (key, content) {
-        return '  ' + content.trim() + ',';
+        return '  ' + content + ',';
       }
     });
 
@@ -484,6 +481,38 @@ describe('gulp-inject', function () {
       should.exist(newFile.contents);
 
       String(newFile.contents).should.equal(String(expectedFile('append.json').contents));
+      done();
+    });
+
+    sources.forEach(function (src) {
+      stream.write(src);
+    });
+
+    stream.end();
+  });
+
+  it('should be able to append files to an empty sections', function (done) {
+
+    var sources = [
+      fixture('lib.js'),
+      fixture('component.html'),
+      fixture('lib2.js'),
+      fixture('styles.css')
+    ];
+
+    var stream = inject('fixtures/template.html', {ignorePath: '/fixtures', append: true});
+
+    stream.on('error', function(err) {
+      should.exist(err);
+      done(err);
+    });
+
+    stream.on('data', function (newFile) {
+
+      should.exist(newFile);
+      should.exist(newFile.contents);
+
+      String(newFile.contents).should.equal(String(expectedFile('ignorePath.html').contents));
       done();
     });
 
