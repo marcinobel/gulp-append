@@ -1,13 +1,13 @@
-# gulp-inject [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Dependency Status][depstat-image]][depstat-url]
+# gulp-append
 
-> A stylesheet, javascript and webcomponent reference injection plugin for [gulp](https://github.com/wearefractal/gulp). No more manual editing of your index.html!
+> A stylesheet, javascript and webcomponent reference appender plugin for [gulp](https://github.com/wearefractal/gulp). No more manual editing of your index.html!
 
 ## Installation
 
-First, install `gulp-inject` as a development dependency:
+First, install `gulp-append` as a development dependency:
 
 ```shell
-npm install --save-dev gulp-inject
+npm install --save-dev gulp-append
 ```
 
 ## Basic usage
@@ -19,7 +19,7 @@ In your `gulpfile.js`:
 **Note:** New from `v.0.3`. Here you pipe `inject` through *where* to inject.
 
 ```javascript
-var inject = require("gulp-inject");
+var inject = require("gulp-append");
 
 gulp.src('./src/index.html')
   .pipe(inject(gulp.src(["./src/*.js", "./src/*.css"], {read: false}))) // Not necessary to read the files (will speed up things), we're only after their paths
@@ -31,7 +31,7 @@ gulp.src('./src/index.html')
 **Note:** Old behavior. Here you pipe `inject` through *what* to inject.
 
 ```javascript
-var inject = require("gulp-inject");
+var inject = require("gulp-append");
 
 gulp.src(["./src/*.js", "./src/*.css"], {read: false}) // Not necessary to read the files (will speed up things), we're only after their paths
 	.pipe(inject("path/to/your/index.html"))
@@ -75,7 +75,7 @@ Install [`event-stream`](https://www.npmjs.org/package/event-stream) with: `npm 
 
 ```javascript
 var es = require('event-stream'),
-    inject = require('gulp-inject');
+    inject = require('gulp-append');
 
 // Concatenate vendor scripts
 var vendorStream = gulp.src(['./src/vendors/*.js'])
@@ -95,12 +95,12 @@ gulp.src('./src/index.html')
 
 ### Injecting some files into `<head>` and some into `<body>`
 
-Use `gulp-inject`'s `starttag` option.
+Use `gulp-append`'s `starttag` option.
 
 **Code:**
 
 ```javascript
-var inject = require('gulp-inject');
+var inject = require('gulp-append');
 
 gulp.src('./src/index.html')
   .pipe(inject(gulp.src('./src/importantFile.js', {read: false}), {starttag: '<!-- inject:head:{{ext}} -->'}))
@@ -136,7 +136,7 @@ If you use [Bower](http://bower.io/) for frontend dependencies I recommend using
 
 ```javascript
 var bowerFiles = require('gulp-bower-files'),
-    inject = require('gulp-inject'),
+    inject = require('gulp-append'),
     stylus = require('gulp-stylus'),
     es = require('event-stream');
 
@@ -157,7 +157,7 @@ gulp.src('./src/index.html')
 
 ### Injecting into a json-file
 
-You can customize `gulp-inject` further by using the `transform` function option, e.g. by injecting files into a json-file.
+You can customize `gulp-append` further by using the `transform` function option, e.g. by injecting files into a json-file.
 
 **Code:**
 
@@ -312,12 +312,3 @@ If set the given function is used as the compareFunction for the array sort func
 ## License
 
 [MIT License](http://en.wikipedia.org/wiki/MIT_License)
-
-[npm-url]: https://npmjs.org/package/gulp-inject
-[npm-image]: https://badge.fury.io/js/gulp-inject.png
-
-[travis-url]: http://travis-ci.org/klei/gulp-inject
-[travis-image]: https://secure.travis-ci.org/klei/gulp-inject.png?branch=master
-
-[depstat-url]: https://david-dm.org/klei/gulp-inject
-[depstat-image]: https://david-dm.org/klei/gulp-inject.png

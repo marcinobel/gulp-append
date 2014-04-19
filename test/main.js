@@ -1,525 +1,525 @@
 /*global describe, it*/
 'use strict';
 
-var fs = require('fs'),
-  path = require('path'),
-  es = require('event-stream'),
-  should = require('should');
+var fs = require('fs');
+var path = require('path');
+var es = require('event-stream');
+var should = require('should');
 
 require('mocha');
 
-var gutil = require('gulp-util'),
-  inject = require('../');
+var gutil = require('gulp-util');
+var inject = require('../');
 
-function expectedFile (file) {
-  var filepath = path.join(__dirname, 'expected', file);
-  return new gutil.File({
-    path: filepath,
-    cwd: __dirname,
-    base: path.join(__dirname, 'expected', path.dirname(file)),
-    contents: fs.readFileSync(filepath)
-  });
+function expectedFile(file) {
+    var filepath = path.join(__dirname, 'expected', file);
+    return new gutil.File({
+        path: filepath,
+        cwd: __dirname,
+        base: path.join(__dirname, 'expected', path.dirname(file)),
+        contents: fs.readFileSync(filepath)
+    });
 }
 
-function fixture (file, read) {
-  var filepath = path.join(__dirname, 'fixtures', file);
-  return new gutil.File({
-    path: filepath,
-    cwd: __dirname,
-    base: path.join(__dirname, 'fixtures', path.dirname(file)),
-    contents: read ? fs.readFileSync(filepath) : null
-  });
+function fixture(file, read) {
+    var filepath = path.join(__dirname, 'fixtures', file);
+    return new gutil.File({
+        path: filepath,
+        cwd: __dirname,
+        base: path.join(__dirname, 'fixtures', path.dirname(file)),
+        contents: read ? fs.readFileSync(filepath) : null
+    });
 }
 
-describe('gulp-inject', function () {
+describe('gulp-append', function () {
 
-  it('should inject stylesheets, scripts and html components into desired file', function (done) {
+    it('should inject stylesheets, scripts and html components into desired file', function (done) {
 
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('styles.css')
-    ];
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('styles.css')
+        ];
 
-    var stream = inject('fixtures/template.html');
+        var stream = inject('fixtures/template.html');
 
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+            newFile.base.should.equal(path.join(__dirname, 'fixtures'));
+
+            String(newFile.contents).should.equal(String(expectedFile('defaults.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.on('data', function (newFile) {
+    it('should take a Vinyl File Stream with files to inject into current stream', function (done) {
 
-      should.exist(newFile);
-      should.exist(newFile.contents);
-      newFile.base.should.equal(path.join(__dirname, 'fixtures'));
+        var source = es.readArray([
+            fixture('template.html', true),
+            fixture('template2.html', true)
+        ]);
+        source.pause();
+        var toInject = es.readArray([
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('styles.css')
+        ]);
+        toInject.pause();
 
-      String(newFile.contents).should.equal(String(expectedFile('defaults.html').contents));
-      done();
+        var stream = source.pipe(inject(toInject));
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        var received = 0;
+        stream.on('data', function (newFile) {
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile(received ? 'defaults2.html' : 'defaults.html').contents));
+
+            if (++received === 2) {
+                done();
+            }
+        });
+
+        source.resume();
+
+        toInject.resume();
     });
 
-    sources.forEach(function (src) {
-      stream.write(src);
+    it('should inject stylesheets, scripts and html components with `ignorePath` removed from file path', function (done) {
+
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
+
+        var stream = inject('fixtures/template.html', {ignorePath: '/fixtures'});
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('ignorePath.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.end();
-  });
+    it('should inject stylesheets, scripts and html components with `addPrefix` added to file path', function (done) {
 
-  it('should take a Vinyl File Stream with files to inject into current stream', function (done) {
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
 
-    var source = es.readArray([
-      fixture('template.html', true),
-      fixture('template2.html', true)
-    ]);
-    source.pause();
-    var toInject = es.readArray([
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('styles.css')
-    ]);
-    toInject.pause();
+        var stream = inject('fixtures/template.html', {addPrefix: 'my-test-dir'});
 
-    var stream = source.pipe(inject(toInject));
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
 
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('addPrefix.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    var received = 0;
-    stream.on('data', function (newFile) {
-      should.exist(newFile);
-      should.exist(newFile.contents);
+    it('should inject stylesheets, scripts and html components without root slash if `addRootSlash` is `false`', function (done) {
 
-      String(newFile.contents).should.equal(String(expectedFile(received ? 'defaults2.html' : 'defaults.html').contents));
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('styles.css')
+        ];
 
-      if (++received === 2) {
-        done();
-      }
+        var stream = inject('fixtures/template.html', {addRootSlash: false});
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('noRootSlash.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    source.resume();
+    it('should use templateString as template if specified', function (done) {
 
-    toInject.resume();
-  });
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
 
-  it('should inject stylesheets, scripts and html components with `ignorePath` removed from file path', function (done) {
+        var stream = inject('fixtures/templateString.html', {
+            ignorePath: 'fixtures',
+            templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<!-- endinject -->\n<h1>Hello world</h1>'
+        });
 
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
 
-    var stream = inject('fixtures/template.html', {ignorePath: '/fixtures'});
+        stream.on('data', function (newFile) {
 
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('templateString.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.on('data', function (newFile) {
+    it('should use starttag and endtag if specified', function (done) {
 
-      should.exist(newFile);
-      should.exist(newFile.contents);
+        var sources = [
+            fixture('lib.js'),
+            fixture('lib2.js')
+        ];
 
-      String(newFile.contents).should.equal(String(expectedFile('ignorePath.html').contents));
-      done();
+        var stream = inject('fixtures/templateString.html', {
+            ignorePath: 'fixtures',
+            starttag: '<!DOCTYPE html>',
+            endtag: '<h1>',
+            templateString: '<!DOCTYPE html><h1>Hello world</h1>'
+        });
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('templateStringCustomTags.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    sources.forEach(function (src) {
-      stream.write(src);
+    it('should replace {{ext}} in starttag and endtag with current file extension if specified', function (done) {
+
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js')
+        ];
+
+        var stream = inject('fixtures/templateString.html', {
+            ignorePath: 'fixtures',
+            starttag: '<!-- {{ext}}: -->',
+            endtag: '<!-- /{{ext}} -->',
+            templateString: '<!DOCTYPE html>\n<!-- js: -->\n<!-- /js -->\n<h1>Hello world</h1>'
+        });
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('templateStringCustomTagsWithExt.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.end();
-  });
+    it('should replace existing data within start and end tag', function (done) {
 
-  it('should inject stylesheets, scripts and html components with `addPrefix` added to file path', function (done) {
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
 
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
+        var stream = inject('fixtures/templateString.html', {
+            ignorePath: 'fixtures',
+            templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<script src="/aLib.js"></script>\n<!-- endinject -->\n<h1>Hello world</h1>'
+        });
 
-    var stream = inject('fixtures/template.html', {addPrefix: 'my-test-dir'});
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
 
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('templateStringWithExisting.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.on('data', function (newFile) {
+    it('should use custom transform function for each file if specified', function (done) {
 
-      should.exist(newFile);
-      should.exist(newFile.contents);
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
 
-      String(newFile.contents).should.equal(String(expectedFile('addPrefix.html').contents));
-      done();
+        var stream = inject('fixtures/customTransform.json', {
+            ignorePath: 'fixtures',
+            templateString: '{\n  "js": [\n  ]\n}',
+            starttag: '"{{ext}}": [',
+            endtag: ']',
+            transform: function (srcPath, file, i, length) {
+                return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
+            }
+        });
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('customTransform.json').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    sources.forEach(function (src) {
-      stream.write(src);
+    it('should inject files ordered with a custom sorting function if specified', function (done) {
+
+        var sources = [
+            fixture('lib.js'),
+            fixture('lib2.js')
+        ];
+
+        var stream = inject('fixtures/template.html', {
+            ignorePath: 'fixtures',
+            sort: function (a, b) {
+                return b.filepath.localeCompare(a.filepath);
+            }
+        });
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('customSort.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.end();
-  });
+    it('should append new data before end tag', function (done) {
 
-  it('should inject stylesheets, scripts and html components without root slash if `addRootSlash` is `false`', function (done) {
+        var sources = [
+            fixture('source2.js'),
+            fixture('source2.html'),
+            fixture('source2.css')
+        ];
 
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('styles.css')
-    ];
+        var stream = inject('fixtures/template3.html', {
+            append: true
+        });
 
-    var stream = inject('fixtures/template.html', {addRootSlash: false});
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
 
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('append.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    stream.on('data', function (newFile) {
+    it('should be able to append new data using transform function for each file', function (done) {
 
-      should.exist(newFile);
-      should.exist(newFile.contents);
+        var sources = [
+            fixture('lib2.js'),
+            fixture('component.html'),
+            fixture('lib3.js'),
+            fixture('styles.css')
+        ];
 
-      String(newFile.contents).should.equal(String(expectedFile('noRootSlash.html').contents));
-      done();
+        var stream = inject('fixtures/customTransform.json', {
+            ignorePath: 'fixtures',
+            templateString: '{\n  "js": [\n    "/lib1.js"\n  ]\n}',
+            starttag: '"{{ext}}": [',
+            append: true,
+            endtag: ']',
+            transform: function (srcPath, file, i, length) {
+                return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
+            },
+            adjust: function (key, content) {
+                return '  ' + content + ',';
+            }
+        });
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('append.json').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
 
-    sources.forEach(function (src) {
-      stream.write(src);
+    it('should be able to append files to an empty sections', function (done) {
+
+        var sources = [
+            fixture('lib.js'),
+            fixture('component.html'),
+            fixture('lib2.js'),
+            fixture('styles.css')
+        ];
+
+        var stream = inject('fixtures/template.html', {ignorePath: '/fixtures', append: true});
+
+        stream.on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
+
+        stream.on('data', function (newFile) {
+
+            should.exist(newFile);
+            should.exist(newFile.contents);
+
+            String(newFile.contents).should.equal(String(expectedFile('ignorePath.html').contents));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
     });
-
-    stream.end();
-  });
-
-  it('should use templateString as template if specified', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
-
-    var stream = inject('fixtures/templateString.html', {
-      ignorePath: 'fixtures',
-      templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<!-- endinject -->\n<h1>Hello world</h1>'
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('templateString.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should use starttag and endtag if specified', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('lib2.js')
-    ];
-
-    var stream = inject('fixtures/templateString.html', {
-      ignorePath: 'fixtures',
-      starttag: '<!DOCTYPE html>',
-      endtag: '<h1>',
-      templateString: '<!DOCTYPE html><h1>Hello world</h1>'
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('templateStringCustomTags.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should replace {{ext}} in starttag and endtag with current file extension if specified', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js')
-    ];
-
-    var stream = inject('fixtures/templateString.html', {
-      ignorePath: 'fixtures',
-      starttag: '<!-- {{ext}}: -->',
-      endtag: '<!-- /{{ext}} -->',
-      templateString: '<!DOCTYPE html>\n<!-- js: -->\n<!-- /js -->\n<h1>Hello world</h1>'
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('templateStringCustomTagsWithExt.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should replace existing data within start and end tag', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
-
-    var stream = inject('fixtures/templateString.html', {
-      ignorePath: 'fixtures',
-      templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<script src="/aLib.js"></script>\n<!-- endinject -->\n<h1>Hello world</h1>'
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('templateStringWithExisting.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should use custom transform function for each file if specified', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
-
-    var stream = inject('fixtures/customTransform.json', {
-      ignorePath: 'fixtures',
-      templateString: '{\n  "js": [\n  ]\n}',
-      starttag: '"{{ext}}": [',
-      endtag: ']',
-      transform: function (srcPath, file, i, length) {
-        return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
-      }
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('customTransform.json').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should inject files ordered with a custom sorting function if specified', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('lib2.js')
-    ];
-
-    var stream = inject('fixtures/template.html', {
-      ignorePath: 'fixtures',
-      sort: function (a, b) {
-        return b.filepath.localeCompare(a.filepath);
-      }
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('customSort.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should append new data before end tag', function (done) {
-
-    var sources = [
-      fixture('source2.js'),
-      fixture('source2.html'),
-      fixture('source2.css')
-    ];
-
-    var stream = inject('fixtures/template3.html', {
-      append: true
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('append.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should be able to append new data using transform function for each file', function (done) {
-
-    var sources = [
-      fixture('lib2.js'),
-      fixture('component.html'),
-      fixture('lib3.js'),
-      fixture('styles.css')
-    ];
-
-    var stream = inject('fixtures/customTransform.json', {
-      ignorePath: 'fixtures',
-      templateString: '{\n  "js": [\n    "/lib1.js"\n  ]\n}',
-      starttag: '"{{ext}}": [',
-      append: true,
-      endtag: ']',
-      transform: function (srcPath, file, i, length) {
-        return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
-      },
-      adjust: function (key, content) {
-        return '  ' + content + ',';
-      }
-    });
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('append.json').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
-
-  it('should be able to append files to an empty sections', function (done) {
-
-    var sources = [
-      fixture('lib.js'),
-      fixture('component.html'),
-      fixture('lib2.js'),
-      fixture('styles.css')
-    ];
-
-    var stream = inject('fixtures/template.html', {ignorePath: '/fixtures', append: true});
-
-    stream.on('error', function(err) {
-      should.exist(err);
-      done(err);
-    });
-
-    stream.on('data', function (newFile) {
-
-      should.exist(newFile);
-      should.exist(newFile.contents);
-
-      String(newFile.contents).should.equal(String(expectedFile('ignorePath.html').contents));
-      done();
-    });
-
-    sources.forEach(function (src) {
-      stream.write(src);
-    });
-
-    stream.end();
-  });
 });
