@@ -3,14 +3,14 @@
 
 require('mocha');
 
-var fs = require('fs');
-var path = require('path');
-var es = require('event-stream');
-var should = require('should');
-var gutil = require('gulp-util');
-var append = require('../');
+var fs = require('fs'),
+    path = require('path'),
+    es = require('event-stream'),
+    should = require('should'),
+    gutil = require('gulp-util'),
+    append = require('../');
 
-function file(file) {
+function contentOf(file) {
     var filepath = path.join(__dirname, 'expected', file);
     var file = new gutil.File({
         path: filepath,
@@ -21,14 +21,28 @@ function file(file) {
     return String(file.contents);
 }
 
-function fixture(file, read) {
-    var filepath = path.join(__dirname, 'fixtures', file);
-    return new gutil.File({
-        path: filepath,
-        cwd: __dirname,
-        base: path.join(__dirname, 'fixtures', path.dirname(file)),
-        contents: read ? fs.readFileSync(filepath) : null
-    });
+function load() {
+    var read = false,
+        files = [],
+        i = 0,
+        filepath, file;
+
+    if (typeof arguments[0] !== 'string') {
+        i = 1;
+        read = Boolean(arguments[0]);
+    }
+
+    for (; i < arguments.length; i++) {
+        filepath = path.join(__dirname, 'fixtures', arguments[i]);
+        file = new gutil.File({
+            path: filepath,
+            cwd: __dirname,
+            base: path.join(__dirname, 'fixtures', path.dirname(arguments[i])),
+            contents: read ? fs.readFileSync(filepath) : null
+        });
+        files.push(file);
+    }
+    return files;
 }
 
 function invokePlugin(done, fileOrStream, opt) {
@@ -36,30 +50,24 @@ function invokePlugin(done, fileOrStream, opt) {
         throw new Error('"done" not included');
     }
     return append(fileOrStream, opt)
-      .on('error', function (err) {
-          should.exist(err);
-          done(err);
-      });
+        .on('error', function (err) {
+            should.exist(err);
+            done(err);
+        });
 }
 
 describe('gulp-append', function () {
 
     it('should inject stylesheets, scripts and html components into desired file', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/template.html')
-          .on('data', function (newFile) {
-              should.exist(newFile);
-              should.exist(newFile.contents);
-              newFile.base.should.equal(path.join(__dirname, 'fixtures'));
-              String(newFile.contents).should.equal(file('defaults.html'));
-              done();
-          });
+            .on('data', function (file) {
+                file.base.should.equal(path.join(__dirname, 'fixtures'));
+                String(file.contents).should.equal(contentOf('defaults.html'));
+                done();
+            });
 
         sources.forEach(function (src) {
             stream.write(src);
@@ -70,58 +78,35 @@ describe('gulp-append', function () {
 
     it('should take a Vinyl File Stream with files to inject into current stream', function (done) {
 
-        var source = es.readArray([
-            fixture('template.html', true),
-            fixture('template2.html', true)
-        ]);
-        source.pause();
-        var toInject = es.readArray([
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('styles.css')
-        ]);
-        toInject.pause();
+        var templates = es.readArray(load(true, 'template.html', 'template2.html'));
+        templates.pause();
+        var sources = es.readArray(load('lib.js', 'component.html', 'styles.css'));
+        sources.pause();
 
-        var stream = source.pipe(append(toInject));
-
-        stream.on('error', function (err) {
-            should.exist(err);
-            done(err);
-        });
+        var stream = templates.pipe(invokePlugin(done, sources));
 
         var received = 0;
-        stream.on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-
-            String(newFile.contents).should.equal(file(received ? 'defaults2.html' : 'defaults.html'));
-
-            if (++received === 2) {
+        stream.on('data', function (file) {
+            String(file.contents).should.equal(contentOf(received ? 'defaults2.html' : 'defaults.html'));
+            received++;
+            if (received === 2) {
                 done();
             }
         });
 
-        source.resume();
-
-        toInject.resume();
+        templates.resume();
+        sources.resume();
     });
 
     it('should inject stylesheets, scripts and html components with `ignorePath` removed from file path', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', {ignorePath: '/fixtures'})
-          .on('data', function (newFile) {
-              should.exist(newFile);
-              should.exist(newFile.contents);
-              String(newFile.contents).should.equal(file('ignorePath.html'));
-              done();
-          });
+        var stream = invokePlugin(done, 'fixtures/template.html', { ignorePath: '/fixtures' })
+            .on('data', function (file) {
+                String(file.contents).should.equal(contentOf('ignorePath.html'));
+                done();
+            });
 
         sources.forEach(function (src) {
             stream.write(src);
@@ -132,20 +117,13 @@ describe('gulp-append', function () {
 
     it('should inject stylesheets, scripts and html components with `addPrefix` added to file path', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/template.html', { addPrefix: 'my-test-dir' })
-          .on('data', function (newFile) {
-              should.exist(newFile);
-              should.exist(newFile.contents);
-              String(newFile.contents).should.equal(file('addPrefix.html'));
-              done();
-          });
+            .on('data', function (file) {
+                String(file.contents).should.equal(contentOf('addPrefix.html'));
+                done();
+            });
 
         sources.forEach(function (src) {
             stream.write(src);
@@ -156,19 +134,13 @@ describe('gulp-append', function () {
 
     it('should inject stylesheets, scripts and html components without root slash if `addRootSlash` is `false`', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', {addRootSlash: false})
-          .on('data', function (newFile) {
-              should.exist(newFile);
-              should.exist(newFile.contents);
-              String(newFile.contents).should.equal(file('noRootSlash.html'));
-              done();
-          });
+        var stream = invokePlugin(done, 'fixtures/template.html', { addRootSlash: false })
+            .on('data', function (file) {
+                String(file.contents).should.equal(contentOf('noRootSlash.html'));
+                done();
+            });
 
         sources.forEach(function (src) {
             stream.write(src);
@@ -179,20 +151,13 @@ describe('gulp-append', function () {
 
     it('should use templateString as template if specified', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/templateString.html', {
             ignorePath: 'fixtures',
-            templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<!-- endinject -->\n<h1>Hello world</h1>'
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('templateString.html'));
+            templateString: '<!DOCTYPE html><!-- inject:js --><!-- endinject --><h1>Hello world</h1>'
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('templateString.html'));
             done();
         });
 
@@ -205,10 +170,7 @@ describe('gulp-append', function () {
 
     it('should use starttag and endtag if specified', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('lib2.js')
-        ];
+        var sources = load('lib.js', 'lib2.js');
 
         var stream = invokePlugin(done, 'fixtures/templateString.html', {
             ignorePath: 'fixtures',
@@ -218,7 +180,7 @@ describe('gulp-append', function () {
         }).on('data', function (newFile) {
             should.exist(newFile);
             should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('templateStringCustomTags.html'));
+            String(newFile.contents).should.equal(contentOf('templateStringCustomTags.html'));
             done();
         });
 
@@ -231,21 +193,15 @@ describe('gulp-append', function () {
 
     it('should replace {{ext}} in starttag and endtag with current file extension if specified', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js');
 
         var stream = invokePlugin(done, 'fixtures/templateString.html', {
             ignorePath: 'fixtures',
             starttag: '<!-- {{ext}}: -->',
             endtag: '<!-- /{{ext}} -->',
-            templateString: '<!DOCTYPE html>\n<!-- js: -->\n<!-- /js -->\n<h1>Hello world</h1>'
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('templateStringCustomTagsWithExt.html'));
+            templateString: '<!DOCTYPE html><!-- js: --><!-- /js --><h1>Hello world</h1>'
+        }).on('data', function (test) {
+            String(test.contents).should.equal(contentOf('templateStringCustomTagsWithExt.html'));
             done();
         });
 
@@ -258,20 +214,13 @@ describe('gulp-append', function () {
 
     it('should replace existing data within start and end tag', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/templateString.html', {
             ignorePath: 'fixtures',
-            templateString: '<!DOCTYPE html>\n<!-- inject:js -->\n<script src="/aLib.js"></script>\n<!-- endinject -->\n<h1>Hello world</h1>'
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('templateStringWithExisting.html'));
+            templateString: '<!DOCTYPE html><!-- inject:js --><script src="/aLib.js"></script><!-- endinject --><h1>Hello world</h1>'
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('templateStringWithExisting.html'));
             done();
         });
 
@@ -284,14 +233,9 @@ describe('gulp-append', function () {
 
     it('should use custom transform function for each file if specified', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = append('fixtures/customTransform.json', {
+        var stream = invokePlugin(done, 'fixtures/customTransform.json', {
             ignorePath: 'fixtures',
             templateString: '{\n  "js": [\n  ]\n}',
             starttag: '"{{ext}}": [',
@@ -299,10 +243,8 @@ describe('gulp-append', function () {
             transform: function (srcPath, file, i, length) {
                 return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
             }
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('customTransform.json'));
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('customTransform.json'));
             done();
         });
 
@@ -315,20 +257,15 @@ describe('gulp-append', function () {
 
     it('should inject files ordered with a custom sorting function if specified', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('lib2.js')
-        ];
+        var sources = load('lib.js', 'lib2.js');
 
-        var stream = append('fixtures/template.html', {
+        var stream = invokePlugin(done, 'fixtures/template.html', {
             ignorePath: 'fixtures',
             sort: function (a, b) {
                 return b.filepath.localeCompare(a.filepath);
             }
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('customSort.html'));
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('customSort.html'));
             done();
         });
 
@@ -341,18 +278,12 @@ describe('gulp-append', function () {
 
     it('should append new data before end tag', function (done) {
 
-        var sources = [
-            fixture('source2.js'),
-            fixture('source2.html'),
-            fixture('source2.css')
-        ];
+        var sources = load('source2.js', 'source2.html', 'source2.css');
 
         var stream = invokePlugin(done, 'fixtures/template3.html', {
             append: true
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('append.html'));
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('append.html'));
             done();
         });
 
@@ -365,12 +296,7 @@ describe('gulp-append', function () {
 
     it('should be able to append new data using transform function for each file', function (done) {
 
-        var sources = [
-            fixture('lib2.js'),
-            fixture('component.html'),
-            fixture('lib3.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib2.js', 'component.html', 'lib3.js', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/customTransform.json', {
             ignorePath: 'fixtures',
@@ -384,10 +310,8 @@ describe('gulp-append', function () {
             adjust: function (key, content) {
                 return '  ' + content + ',';
             }
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(file('append.json'));
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('append.json'));
             done();
         });
 
@@ -400,20 +324,15 @@ describe('gulp-append', function () {
 
     it('should be able to append files to an empty sections', function (done) {
 
-        var sources = [
-            fixture('lib.js'),
-            fixture('component.html'),
-            fixture('lib2.js'),
-            fixture('styles.css')
-        ];
+        var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', {ignorePath: '/fixtures', append: true})
-          .on('data', function (newFile) {
-              should.exist(newFile);
-              should.exist(newFile.contents);
-              String(newFile.contents).should.equal(file('ignorePath.html'));
-              done();
-          });
+        var stream = invokePlugin(done, 'fixtures/template.html', {
+            ignorePath: '/fixtures',
+            append: true
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('ignorePath.html'));
+            done();
+        });
 
         sources.forEach(function (src) {
             stream.write(src);

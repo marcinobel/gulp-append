@@ -162,7 +162,7 @@ function collector(collection, opt, cb) {
         }
 
         var ext = extname(file.path),
-          tag = getTag(opt.starttag, ext);
+            tag = getTag(opt.starttag, ext);
 
         if (!collection[tag]) {
             collection[tag] = {ext: ext, starttag: tag, endtag: getTag(opt.endtag, ext), files: []};
@@ -204,20 +204,26 @@ function getNewContent(oldContent, collection, opt) {
             tagInfo.files.sort(opt.sort);
         }
         return contents.replace(
-          getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
-          function injector(match, indent, starttag, content, endtag) {
-              var result = [indent + starttag];
-              content = content.trim();
-              if (opt.append && content) {
-                  result = result.concat(opt.adjust(key, content));
-              }
-              return result
-                .concat(tagInfo.files.map(function transformFile(file, i, files) {
-                    return opt.transform(file.filepath, file.file, i, files.length);
-                }))
-                .concat(endtag)
-                .join('\n' + indent);
-          }
+            getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
+            function injector(match, indent, starttag, content, endtag) {
+                var newLine = '\n';
+                if (!content || typeof content !== 'string' || content.indexOf('\n') === -1) {
+                    indent = '';
+                    newLine = '';
+                }
+
+                var result = [indent + starttag];
+                content = content.trim();
+                if (opt.append && content) {
+                    result = result.concat(opt.adjust(key, content));
+                }
+                return result
+                    .concat(tagInfo.files.map(function transformFile(file, i, files) {
+                        return opt.transform(file.filepath, file.file, i, files.length);
+                    }))
+                    .concat(endtag)
+                    .join(newLine + indent);
+            }
         );
     }, String(oldContent)));
 }
