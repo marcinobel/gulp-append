@@ -1,4 +1,3 @@
-/*global module*/
 'use strict';
 
 var fs = require('fs');
@@ -215,7 +214,7 @@ function getNewContent(oldContent, collection, opt) {
             tagInfo.files.sort(opt.sort);
         }
         return contents.replace(
-            getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
+            createSectionMatcher(tagInfo.starttag, tagInfo.endtag),
             function injector(match, before, starttag, content, endtag) {
                 var indent = calculateIndent(before, content),
                     result = before + starttag;
@@ -237,15 +236,15 @@ function getNewContent(oldContent, collection, opt) {
 function getTag(tag, ext) {
     return tag.replace('{{ext}}', ext);
 }
-exports.getTag = getTag;
 
 function extname(file) {
     return path.extname(file).slice(1);
 }
 
-function getInjectorTagsRegExp(starttag, endtag) {
+function createSectionMatcher(starttag, endtag) {
     return new RegExp('(^[^\\n]*?)(' + escapeForRegExp(starttag) + ')((?:\\n|\\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gim');
 }
+module.exports.createSectionMatcher = createSectionMatcher;
 
 function escapeForRegExp(str) {
     return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');

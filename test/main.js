@@ -49,13 +49,13 @@ function invokePlugin(done, fileOrStream, opt) {
         });
 }
 
-describe('gulp-append', function () {
+describe('Gulp plugin', function () {
 
     it('should inject stylesheets, scripts and html components into desired file', function (done) {
 
         var sources = load('lib.js', 'component.html', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html')
+        var stream = invokePlugin(done, 'fixtures/template-1.html')
             .on('data', function (file) {
                 file.base.should.equal(path.join(__dirname, 'fixtures'));
                 String(file.contents).should.equal(contentOf('defaults.html'));
@@ -71,7 +71,7 @@ describe('gulp-append', function () {
 
     it('should take a Vinyl File Stream with files to inject into current stream', function (done) {
 
-        var templates = es.readArray(load(true, 'template.html', 'template2.html'));
+        var templates = es.readArray(load(true, 'template-1.html', 'template-2.html'));
         templates.pause();
         var sources = es.readArray(load('lib.js', 'component.html', 'styles.css'));
         sources.pause();
@@ -95,7 +95,7 @@ describe('gulp-append', function () {
 
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', { ignorePath: '/fixtures' })
+        var stream = invokePlugin(done, 'fixtures/template-1.html', { ignorePath: '/fixtures' })
             .on('data', function (file) {
                 String(file.contents).should.equal(contentOf('ignorePath.html'));
                 done();
@@ -112,7 +112,7 @@ describe('gulp-append', function () {
 
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', { addPrefix: 'my-test-dir' })
+        var stream = invokePlugin(done, 'fixtures/template-1.html', { addPrefix: 'my-test-dir' })
             .on('data', function (file) {
                 String(file.contents).should.equal(contentOf('addPrefix.html'));
                 done();
@@ -129,7 +129,7 @@ describe('gulp-append', function () {
 
         var sources = load('lib.js', 'component.html', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', { addRootSlash: false })
+        var stream = invokePlugin(done, 'fixtures/template-1.html', { addRootSlash: false })
             .on('data', function (file) {
                 String(file.contents).should.equal(contentOf('noRootSlash.html'));
                 done();
@@ -252,7 +252,7 @@ describe('gulp-append', function () {
 
         var sources = load('lib.js', 'lib2.js');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', {
+        var stream = invokePlugin(done, 'fixtures/template-1.html', {
             ignorePath: 'fixtures',
             sort: function (a, b) {
                 return b.filepath.localeCompare(a.filepath);
@@ -273,7 +273,7 @@ describe('gulp-append', function () {
 
         var sources = load('source2.js', 'source2.html', 'source2.css');
 
-        var stream = invokePlugin(done, 'fixtures/template3.html', {
+        var stream = invokePlugin(done, 'fixtures/template-3.html', {
             append: true
         }).on('data', function (file) {
             String(file.contents).should.equal(contentOf('append.html'));
@@ -319,7 +319,7 @@ describe('gulp-append', function () {
 
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
-        var stream = invokePlugin(done, 'fixtures/template.html', {
+        var stream = invokePlugin(done, 'fixtures/template-1.html', {
             ignorePath: '/fixtures',
             append: true
         }).on('data', function (file) {
@@ -337,7 +337,7 @@ describe('gulp-append', function () {
     it('should use indent of starttag', function(done) {
         var sources = load('lib1.js', 'lib2.js', 'lib3.js');
 
-        var stream = invokePlugin(done, 'fixtures/template4.html')
+        var stream = invokePlugin(done, 'fixtures/template-4.html')
             .on('data', function(file) {
                 String(file.contents).should.equal(contentOf('indentOfStartTag.html'));
                 done();
