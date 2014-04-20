@@ -1,3 +1,4 @@
+/*global module*/
 'use strict';
 
 var fs = require('fs');
@@ -120,6 +121,7 @@ function handleVinylStream(toInject, opt) {
 function collectFilesToInject(toInject, opt) {
     var collection = {}, done = false, queue = [];
 
+    //noinspection JSCheckFunctionSignatures
     toInject.pipe(es.through(collector(collection, opt), function () {
         done = true;
         while (queue.length) {
@@ -184,6 +186,15 @@ function collector(collection, opt, cb) {
     };
 }
 
+function calculateIndent(before, content) {
+    var indent = (new Array(before.length + 1)).join(' ');
+    var newLine = '\n';
+    if (!content || typeof content !== 'string' || content.indexOf('\n') === -1) {
+        indent = '';
+        newLine = '';
+    }
+    return newLine + indent;
+}
 /**
  * Get new content for template
  * with all injections made
@@ -205,24 +216,19 @@ function getNewContent(oldContent, collection, opt) {
         }
         return contents.replace(
             getInjectorTagsRegExp(tagInfo.starttag, tagInfo.endtag),
-            function injector(match, indent, starttag, content, endtag) {
-                var newLine = '\n';
-                if (!content || typeof content !== 'string' || content.indexOf('\n') === -1) {
-                    indent = '';
-                    newLine = '';
-                }
-
-                var result = [indent + starttag];
+            function injector(match, before, starttag, content, endtag) {
+                var indent = calculateIndent(before, content),
+                    result = before + starttag;
                 content = content.trim();
                 if (opt.append && content) {
-                    result = result.concat(opt.adjust(key, content));
+                    result = result + indent + opt.adjust(key, content);
                 }
-                return result
-                    .concat(tagInfo.files.map(function transformFile(file, i, files) {
+                return result + indent +
+                    tagInfo.files.map(function transformFile(file, i, files) {
                         return opt.transform(file.filepath, file.file, i, files.length);
-                    }))
+                    })
                     .concat(endtag)
-                    .join(newLine + indent);
+                    .join(indent);
             }
         );
     }, String(oldContent)));
@@ -231,13 +237,14 @@ function getNewContent(oldContent, collection, opt) {
 function getTag(tag, ext) {
     return tag.replace('{{ext}}', ext);
 }
+exports.getTag = getTag;
 
 function extname(file) {
     return path.extname(file).slice(1);
 }
 
 function getInjectorTagsRegExp(starttag, endtag) {
-    return new RegExp('([ \t]*)(' + escapeForRegExp(starttag) + ')((?:\n|\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gi');
+    return new RegExp('(^[^\\n]*?)(' + escapeForRegExp(starttag) + ')((?:\\n|\\r|.)*?)(' + escapeForRegExp(endtag) + ')', 'gim');
 }
 
 function escapeForRegExp(str) {

@@ -11,14 +11,7 @@ var fs = require('fs'),
     append = require('../');
 
 function contentOf(file) {
-    var filepath = path.join(__dirname, 'expected', file);
-    var file = new gutil.File({
-        path: filepath,
-        cwd: __dirname,
-        base: path.join(__dirname, 'expected', path.dirname(file)),
-        contents: fs.readFileSync(filepath)
-    });
-    return String(file.contents);
+    return String(fs.readFileSync(path.join(__dirname, 'expected', file)));
 }
 
 function load() {
@@ -335,6 +328,22 @@ describe('gulp-append', function () {
         });
 
         sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
+    });
+
+    it('should use indent of starttag', function(done) {
+        var sources = load('lib1.js', 'lib2.js', 'lib3.js');
+
+        var stream = invokePlugin(done, 'fixtures/template4.html')
+            .on('data', function(file) {
+                String(file.contents).should.equal(contentOf('indentOfStartTag.html'));
+                done();
+            });
+
+        sources.forEach(function(src) {
             stream.write(src);
         });
 
