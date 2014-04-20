@@ -51,7 +51,7 @@ function invokePlugin(done, fileOrStream, opt) {
 
 describe('Gulp plugin', function () {
 
-    it('should inject stylesheets, scripts and html components into desired file', function (done) {
+    it('should append stylesheets, scripts and html components into desired file', function (done) {
 
         var sources = load('lib.js', 'component.html', 'styles.css');
 
@@ -69,7 +69,7 @@ describe('Gulp plugin', function () {
         stream.end();
     });
 
-    it('should take a Vinyl File Stream with files to inject into current stream', function (done) {
+    it('should take a Vinyl File Stream with files to append into current stream', function (done) {
 
         var templates = es.readArray(load(true, 'template-1.html', 'template-2.html'));
         templates.pause();
@@ -91,7 +91,7 @@ describe('Gulp plugin', function () {
         sources.resume();
     });
 
-    it('should inject stylesheets, scripts and html components with `ignorePath` removed from file path', function (done) {
+    it('should append stylesheets, scripts and html components with `ignorePath` removed from file path', function (done) {
 
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
@@ -108,7 +108,7 @@ describe('Gulp plugin', function () {
         stream.end();
     });
 
-    it('should inject stylesheets, scripts and html components with `addPrefix` added to file path', function (done) {
+    it('should append stylesheets, scripts and html components with `addPrefix` added to file path', function (done) {
 
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
@@ -125,7 +125,7 @@ describe('Gulp plugin', function () {
         stream.end();
     });
 
-    it('should inject stylesheets, scripts and html components without root slash if `addRootSlash` is `false`', function (done) {
+    it('should append stylesheets, scripts and html components without root slash if `addRootSlash` is `false`', function (done) {
 
         var sources = load('lib.js', 'component.html', 'styles.css');
 
@@ -170,10 +170,8 @@ describe('Gulp plugin', function () {
             starttag: '<!DOCTYPE html>',
             endtag: '<h1>',
             templateString: '<!DOCTYPE html><h1>Hello world</h1>'
-        }).on('data', function (newFile) {
-            should.exist(newFile);
-            should.exist(newFile.contents);
-            String(newFile.contents).should.equal(contentOf('templateStringCustomTags.html'));
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('templateStringCustomTags.html'));
             done();
         });
 
@@ -210,6 +208,7 @@ describe('Gulp plugin', function () {
         var sources = load('lib.js', 'component.html', 'lib2.js', 'styles.css');
 
         var stream = invokePlugin(done, 'fixtures/templateString.html', {
+            replace: true,
             ignorePath: 'fixtures',
             templateString: '<!DOCTYPE html><!-- inject:js --><script src="/aLib.js"></script><!-- endinject --><h1>Hello world</h1>'
         }).on('data', function (file) {
@@ -248,6 +247,28 @@ describe('Gulp plugin', function () {
         stream.end();
     });
 
+    it('should use custom adjust function for old content found between start and end tag', function(done) {
+        var sources = load('lib2.js', 'lib3.js', 'component2.html');
+
+        var stream = invokePlugin(done, 'fixtures/template-5.html', {
+            adjust: function (key, content) {
+                if (key !== '<!-- inject:js -->') {
+                    return content;
+                }
+                return '<!-- ' + content + ' -->';
+            }
+        }).on('data', function (file) {
+            String(file.contents).should.equal(contentOf('adjust.html'));
+            done();
+        });
+
+        sources.forEach(function (src) {
+            stream.write(src);
+        });
+
+        stream.end();
+    });
+
     it('should inject files ordered with a custom sorting function if specified', function (done) {
 
         var sources = load('lib.js', 'lib2.js');
@@ -273,12 +294,11 @@ describe('Gulp plugin', function () {
 
         var sources = load('source2.js', 'source2.html', 'source2.css');
 
-        var stream = invokePlugin(done, 'fixtures/template-3.html', {
-            append: true
-        }).on('data', function (file) {
-            String(file.contents).should.equal(contentOf('append.html'));
-            done();
-        });
+        var stream = invokePlugin(done, 'fixtures/template-3.html')
+            .on('data', function (file) {
+                String(file.contents).should.equal(contentOf('append.html'));
+                done();
+            });
 
         sources.forEach(function (src) {
             stream.write(src);
@@ -295,7 +315,6 @@ describe('Gulp plugin', function () {
             ignorePath: 'fixtures',
             templateString: '{\n  "js": [\n    "/lib1.js"\n  ]\n}',
             starttag: '"{{ext}}": [',
-            append: true,
             endtag: ']',
             transform: function (srcPath, file, i, length) {
                 return '  "' + srcPath + '"' + (i + 1 < length ? ',' : '');
@@ -321,7 +340,7 @@ describe('Gulp plugin', function () {
 
         var stream = invokePlugin(done, 'fixtures/template-1.html', {
             ignorePath: '/fixtures',
-            append: true
+            replace: true
         }).on('data', function (file) {
             String(file.contents).should.equal(contentOf('ignorePath.html'));
             done();
@@ -334,16 +353,16 @@ describe('Gulp plugin', function () {
         stream.end();
     });
 
-    it('should use indent of starttag', function(done) {
+    it('should use indent of starttag', function (done) {
         var sources = load('lib1.js', 'lib2.js', 'lib3.js');
 
         var stream = invokePlugin(done, 'fixtures/template-4.html')
-            .on('data', function(file) {
+            .on('data', function (file) {
                 String(file.contents).should.equal(contentOf('indentOfStartTag.html'));
                 done();
             });
 
-        sources.forEach(function(src) {
+        sources.forEach(function (src) {
             stream.write(src);
         });
 

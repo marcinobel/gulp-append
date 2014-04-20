@@ -30,7 +30,7 @@ module.exports = function (fileOrStream, opt) {
     opt.endtag = opt.endtag || '<!-- endinject -->';
     opt.ignorePath = toArray(opt.ignorePath);
     opt.addRootSlash = typeof opt.addRootSlash !== 'undefined' ? Boolean(opt.addRootSlash) : true;
-    opt.append = typeof opt.append !== 'undefined' ? Boolean(opt.append) : false;
+    opt.replace = typeof opt.replace !== 'undefined' ? Boolean(opt.replace) : false;
 
     opt.transform = opt.transform || function (filepath) {
         switch (extname(filepath)) {
@@ -218,9 +218,9 @@ function getNewContent(oldContent, collection, opt) {
             function injector(match, before, starttag, content, endtag) {
                 var indent = calculateIndent(before, content),
                     result = before + starttag;
-                content = content.trim();
-                if (opt.append && content) {
-                    result = result + indent + opt.adjust(key, content);
+                content = opt.adjust(key, content.trim());
+                if (!opt.replace && content) {
+                    result = result + indent + content;
                 }
                 return result + indent +
                     tagInfo.files.map(function transformFile(file, i, files) {
